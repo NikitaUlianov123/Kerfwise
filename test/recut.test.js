@@ -114,3 +114,17 @@ test('cut replay catches bad cut lists', () => {
   const good = [{ axis: 'v', pos: 4, from: 0, to: 5, thickness: 1 }, { axis: 'h', pos: 3, from: 0, to: 4, thickness: 1 }];
   assert.deepEqual(checkCutSequence(region, parts, good, 1), []);
 });
+
+test('with equal sheets, the plan whose cuts line up wins', async () => {
+  const { betterSolution } = await import('../js/packer.js');
+  const ctx = { W: 100, H: 50, kerf: 1, cutCache: new Map() };
+  const dummyCuts = new Array(10).fill(null);
+  const sheet = (placements) => ({ placements, cuts: dummyCuts, usedArea: 1200 });
+  // Stacked parts: crosscut, then one rip = 2 cuts. Offset parts need extra cuts.
+  const aligned = { sheets: [sheet([rect(0, 0, 30, 20), rect(0, 21, 30, 20)])] };
+  const offset = { sheets: [sheet([rect(0, 0, 30, 20), rect(10, 21, 30, 20)])] };
+  assert.equal(betterSolution(aligned, offset, ctx), true);
+  assert.equal(betterSolution(offset, aligned, ctx), false);
+  const fewerSheets = { sheets: [] };
+  assert.equal(betterSolution(fewerSheets, aligned, ctx), true);
+});

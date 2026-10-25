@@ -9,7 +9,6 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 | Inch scale | 1 in = 64000 u (1/64" = 1000 u) | `js/units.js` `UNITS` |
 | mm scale | 1 mm = 1000 u | `js/units.js` `UNITS` |
 | Effort budgets | quick 400 ms, normal 2000 ms, thorough 8000 ms | `js/packer.js` `EFFORT_MS` |
-| At lower bound | random phase gets 15% of budget | `js/packer.js` `solve` |
 | Max total quantity | 5000 | `js/app.js` `MAX_ITEMS` |
 | Input debounce | 350 ms | `js/app.js` `DEBOUNCE_MS` |
 | localStorage key | `kerfwise-v2` (all projects); `kerfwise-v1` read once for migration | `js/store.js` |
@@ -49,7 +48,10 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 | ORDERS | area, long, short, x, y, perim |
 | CHOICES | baf (best area), bssf, blsf, tl (top-left), lt (left-top) |
 | SPLITS | sla, lla, minas, maxas, sa, la, h (rip first), v (crosscut first) |
-| Solution rank | fewer sheets → smaller least-used sheet → fewer cuts (packer cut count) |
+| Solution rank | fewer sheets → fewer re-planned cuts → smaller least-used sheet |
+| Sheet rank (greedy) | more used area → fewer re-planned cuts → larger free rect |
+| Search re-plan | `plannedCuts` cached per layout (`cutCache`, cleared at 50000), 3000-node limit |
+| At lower bound | random phase gets 40% of budget (`AT_BOUND_SHARE`) |
 | Cut re-plan | after packing, `recut` searches the fewest through cuts for the fixed layout (exact, 20000-node limit → one-axis shortcut → packer cuts); used only if fewer cuts, or equal cuts and shorter length; list sorted into stages |
 
 ## Where to find X
@@ -75,3 +77,4 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 | 2026-10-25 | Rename to Kerfwise, commit, repo, deploy | inline | ~10K | |
 | 2026-10-25 | Action bump; projects + materials + file save; border dimension marks | inline | ~65K | Red flag over 50K: app.js rewrite + browser flow scripts. Lookups now covered by this file |
 | 2026-10-25 | Merge aligned cuts (recut search, cut replay check) | inline | ~30K | |
+| 2026-10-25 | Rank layouts by re-planned cuts | inline | ~12K | |

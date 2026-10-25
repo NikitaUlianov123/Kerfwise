@@ -11,6 +11,9 @@ export const CHOICES = ['baf', 'bssf', 'blsf', 'tl', 'lt'];
 export const SPLITS = ['sla', 'lla', 'minas', 'maxas', 'sa', 'la', 'h', 'v'];
 
 export const EFFORT_MS = { quick: 400, normal: 2000, thorough: 8000 };
+const AT_BOUND_SHARE = 0.4;
+const SEARCH_RECUT_NODES = 3000;
+const CUT_CACHE_LIMIT = 50000;
 
 function now() {
   return globalThis.performance.now();
@@ -196,15 +199,43 @@ function largestFree(sheet) {
   return best;
 }
 
-function betterSheet(a, b) {
+// Cuts a sheet needs after re-planning. Cached by layout because the search
+// builds the same sheet many times; a smaller node limit keeps each lookup cheap.
+function plannedCuts(sheet, ctx) {
+  if (sheet.planned !== undefined) {
+    return sheet.planned;
+  }
+  const key = sheet.placements
+    .map((p) => `${p.x},${p.y},${p.w},${p.h}`)
+    .sort()
+    .join(';');
+  let n = ctx.cutCache.get(key);
+  if (n === undefined) {
+    n = sheet.cuts.length;
+    const plan = recut(sheet.placements, ctx.W, ctx.H, ctx.kerf, SEARCH_RECUT_NODES);
+    if (plan !== null && plan.count < n) {
+      n = plan.count;
+    }
+    if (ctx.cutCache.size >= CUT_CACHE_LIMIT) {
+      ctx.cutCache.clear();
+    }
+    ctx.cutCache.set(key, n);
+  }
+  sheet.planned = n;
+  return n;
+}
+
+function betterSheet(a, b, ctx) {
   if (b === null) {
     return true;
   }
   if (a.usedArea !== b.usedArea) {
     return a.usedArea > b.usedArea;
   }
-  if (a.cuts.length !== b.cuts.length) {
-    return a.cuts.length < b.cuts.length;
+  const ca = plannedCuts(a, ctx);
+  const cb = plannedCuts(b, ctx);
+  if (ca !== cb) {
+    return ca < cb;
   }
   return largestFree(a) > largestFree(b);
 }
@@ -219,29 +250,30 @@ function minUsed(sol) {
   return m;
 }
 
-function cutCount(sol) {
+function cutCount(sol, ctx) {
   let n = 0;
   for (const s of sol.sheets) {
-    n += s.cuts.length;
+    n += plannedCuts(s, ctx);
   }
   return n;
 }
 
-// Fewest sheets first; then the emptiest sheet as empty as possible (one big reusable
-// offcut beats scraps spread over every sheet); then fewest cuts.
-export function betterSolution(a, b) {
+// Fewest sheets first; then fewest cuts after re-planning, which favors layouts
+// whose cuts line up; then the emptiest sheet as empty as possible (one big
+// reusable offcut beats scraps spread over every sheet).
+export function betterSolution(a, b, ctx) {
   if (b === null) {
     return true;
   }
   if (a.sheets.length !== b.sheets.length) {
     return a.sheets.length < b.sheets.length;
   }
-  const ma = minUsed(a);
-  const mb = minUsed(b);
-  if (ma !== mb) {
-    return ma < mb;
+  const ca = cutCount(a, ctx);
+  const cb = cutCount(b, ctx);
+  if (ca !== cb) {
+    return ca < cb;
   }
-  return cutCount(a) < cutCount(b);
+  return minUsed(a) < minUsed(b);
 }
 
 function runFixed(items, ctx, combo) {
@@ -267,7 +299,7 @@ function runGreedy(items, ctx, combos, rng, noise) {
     for (const c of combos) {
       const order = sortItems(remaining, c.order, rng, noise);
       const s = packSheet(order, ctx.W, ctx.H, ctx.kerf, c.choice, c.split);
-      if (betterSheet(s, best)) {
+      if (betterSheet(s, best, ctx)) {
         best = s;
       }
     }
@@ -464,7 +496,7 @@ export function solve(input, options = {}) {
   for (const it of items) {
     itemArea += it.area;
   }
-  const ctx = { W, H, kerf: input.kerf, lowerBound: Math.ceil(itemArea / (W * H)) };
+  const ctx = { W, H, kerf: input.kerf, lowerBound: Math.ceil(itemArea / (W * H)), cutCache: new Map() };
   if (items.length === 0) {
     return finish(null, input, ctx, unplaced, startedAt, 0);
   }
@@ -478,7 +510,7 @@ export function solve(input, options = {}) {
   for (const combo of combos) {
     const sol = runFixed(items, ctx, combo);
     trials++;
-    if (betterSolution(sol, best)) {
+    if (betterSolution(sol, best, ctx)) {
       best = sol;
     }
     if (now() > deadline) {
@@ -489,15 +521,15 @@ export function solve(input, options = {}) {
   if (now() <= deadline) {
     const sol = runGreedy(items, ctx, combos, null, 0);
     trials++;
-    if (betterSolution(sol, best)) {
+    if (betterSolution(sol, best, ctx)) {
       best = sol;
     }
   }
 
-  // At the lower bound the sheet count is optimal; spend a short time on offcut quality only.
+  // At the lower bound the sheet count is optimal; the rest of the search only improves cuts and offcuts.
   let randomDeadline = deadline;
   if (atBound()) {
-    randomDeadline = Math.min(deadline, now() + budget * 0.15);
+    randomDeadline = Math.min(deadline, now() + budget * AT_BOUND_SHARE);
   }
   const maxTrials = options.maxTrials ?? Infinity;
   while (now() < randomDeadline && trials < maxTrials) {
@@ -508,7 +540,7 @@ export function solve(input, options = {}) {
     }
     const sol = runGreedy(items, ctx, sample, rng, 0.05 + rng() * 0.4);
     trials++;
-    if (betterSolution(sol, best)) {
+    if (betterSolution(sol, best, ctx)) {
       best = sol;
     }
   }
