@@ -1,0 +1,11 @@
+{
+  "name": "kerfwise",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plywood cut list optimizer: fits rectangular parts on the fewest sheets.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "serve": "npx --yes http-server -c-1 -p 8080 ."
+  }
+}
