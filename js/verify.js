@@ -50,6 +50,50 @@ export function isGuillotine(rects, kerf) {
   return false;
 }
 
+// Replays the cut list on the sheet. Each cut must run fully across one current
+// piece; at the end every part must be a piece of its own.
+export function checkCutSequence(region, placements, cuts, kerf) {
+  const problems = [];
+  let pieces = [region];
+  cuts.forEach((c, i) => {
+    const index = pieces.findIndex((pc) => {
+      if (c.axis === 'h') {
+        return pc.x === c.from && pc.x + pc.w === c.to && c.pos >= pc.y && c.pos < pc.y + pc.h;
+      }
+      return pc.y === c.from && pc.y + pc.h === c.to && c.pos >= pc.x && c.pos < pc.x + pc.w;
+    });
+    if (index === -1) {
+      problems.push(`cut ${i + 1} does not run fully across one piece.`);
+      return;
+    }
+    const pc = pieces[index];
+    const next = [];
+    if (c.axis === 'h') {
+      const end = pc.y + pc.h;
+      if (c.thickness !== Math.min(kerf, end - c.pos)) {
+        problems.push(`cut ${i + 1} has the wrong width.`);
+      }
+      next.push({ x: pc.x, y: pc.y, w: pc.w, h: c.pos - pc.y });
+      next.push({ x: pc.x, y: c.pos + kerf, w: pc.w, h: end - c.pos - kerf });
+    } else {
+      const end = pc.x + pc.w;
+      if (c.thickness !== Math.min(kerf, end - c.pos)) {
+        problems.push(`cut ${i + 1} has the wrong width.`);
+      }
+      next.push({ x: pc.x, y: pc.y, w: c.pos - pc.x, h: pc.h });
+      next.push({ x: c.pos + kerf, y: pc.y, w: end - c.pos - kerf, h: pc.h });
+    }
+    pieces.splice(index, 1, ...next.filter((n) => n.w > 0 && n.h > 0));
+  });
+  for (const p of placements) {
+    const free = pieces.some((pc) => pc.x === p.x && pc.y === p.y && pc.w === p.w && pc.h === p.h);
+    if (!free) {
+      problems.push(`"${p.label}" is not cut free by the cut list.`);
+    }
+  }
+  return problems;
+}
+
 export function verifySolution(input, result) {
   const problems = [];
   const { sheet, kerf, trim, sheetGrain } = input;
@@ -93,6 +137,10 @@ export function verifySolution(input, result) {
           problems.push(`${tag}: a cut goes through "${p.label}".`);
         }
       }
+    }
+    const region = { x: trim, y: trim, w: sheet.length - 2 * trim, h: sheet.width - 2 * trim };
+    for (const message of checkCutSequence(region, s.placements, s.cuts, kerf)) {
+      problems.push(`${tag}: ${message}`);
     }
     if (!isGuillotine(s.placements, kerf)) {
       problems.push(`${tag}: the layout cannot be cut with straight through cuts.`);

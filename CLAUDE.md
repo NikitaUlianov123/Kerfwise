@@ -49,7 +49,8 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 | ORDERS | area, long, short, x, y, perim |
 | CHOICES | baf (best area), bssf, blsf, tl (top-left), lt (left-top) |
 | SPLITS | sla, lla, minas, maxas, sa, la, h (rip first), v (crosscut first) |
-| Solution rank | fewer sheets → smaller least-used sheet → fewer cuts |
+| Solution rank | fewer sheets → smaller least-used sheet → fewer cuts (packer cut count) |
+| Cut re-plan | after packing, `recut` searches the fewest through cuts for the fixed layout (exact, 20000-node limit → one-axis shortcut → packer cuts); used only if fewer cuts, or equal cuts and shorter length; list sorted into stages |
 
 ## Where to find X
 
@@ -57,6 +58,7 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 |------|------------------|
 | Change packing algorithm | `js/packer.js` → `test/packer.test.js` |
 | Add a layout check | `js/verify.js` → `test/packer.test.js` (verifySolution test) |
+| Change cut sequence planning | `js/recut.js` → `test/recut.test.js`; hook is `bestCutPlan` in `js/packer.js` |
 | Change unit parsing/format | `js/units.js` → `test/units.test.js` |
 | Change paste format | `js/paste.js` → `test/paste.test.js` → hint in `index.html` dialog |
 | Change sheet drawing / cut table | `js/render.js` → `css/style.css` |
@@ -72,3 +74,4 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 | 2026-10-25 | Build app, tests, docs, Pages workflow | inline | ~160K | One-time setup; includes browser screenshot checks |
 | 2026-10-25 | Rename to Kerfwise, commit, repo, deploy | inline | ~10K | |
 | 2026-10-25 | Action bump; projects + materials + file save; border dimension marks | inline | ~65K | Red flag over 50K: app.js rewrite + browser flow scripts. Lookups now covered by this file |
+| 2026-10-25 | Merge aligned cuts (recut search, cut replay check) | inline | ~30K | |

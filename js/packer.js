@@ -4,6 +4,8 @@
 // Coordinates: x runs along the sheet length (the grain), y along the sheet width.
 // A part with grain locked keeps its length along x.
 
+import { recut } from './recut.js';
+
 export const ORDERS = ['area', 'long', 'short', 'x', 'y', 'perim'];
 export const CHOICES = ['baf', 'bssf', 'blsf', 'tl', 'lt'];
 export const SPLITS = ['sla', 'lla', 'minas', 'maxas', 'sa', 'la', 'h', 'v'];
@@ -361,6 +363,29 @@ export function validateInput(input) {
   return errors;
 }
 
+function lengthOf(cuts) {
+  let n = 0;
+  for (const c of cuts) {
+    n += c.to - c.from;
+  }
+  return n;
+}
+
+// Keeps the packer's cuts unless the re-planned sequence is shorter.
+function bestCutPlan(sheet, ctx) {
+  const plan = recut(sheet.placements, ctx.W, ctx.H, ctx.kerf);
+  if (plan === null) {
+    return { cuts: sheet.cuts, offcuts: sheet.free };
+  }
+  if (plan.count < sheet.cuts.length) {
+    return plan;
+  }
+  if (plan.count === sheet.cuts.length && plan.length < lengthOf(sheet.cuts)) {
+    return plan;
+  }
+  return { cuts: sheet.cuts, offcuts: sheet.free };
+}
+
 function finish(best, input, ctx, unplaced, startedAt, trials) {
   const { trim } = input;
   const sheets = [];
@@ -378,8 +403,9 @@ function finish(best, input, ctx, unplaced, startedAt, trials) {
         h: p.h,
         rotated: p.rotated,
       }));
-      const cuts = s.cuts.map((c) => ({ ...c, pos: c.pos + trim, from: c.from + trim, to: c.to + trim }));
-      const offcuts = s.free
+      const plan = bestCutPlan(s, ctx);
+      const cuts = plan.cuts.map((c) => ({ ...c, pos: c.pos + trim, from: c.from + trim, to: c.to + trim }));
+      const offcuts = plan.offcuts
         .map((f) => ({ x: f.x + trim, y: f.y + trim, w: f.w, h: f.h }))
         .sort((a, b) => b.w * b.h - a.w * a.h);
       for (const c of cuts) {
