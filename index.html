@@ -11,6 +11,23 @@
 <body>
   <header class="topbar">
     <h1>Kerfwise</h1>
+    <div class="project-bar">
+      <label class="sr-only" for="project-select">Project</label>
+      <select id="project-select"></select>
+      <details class="menu" id="project-menu">
+        <summary class="ghost-btn">Project ▾</summary>
+        <div class="menu-list" role="menu">
+          <button type="button" role="menuitem" id="new-project">New project</button>
+          <button type="button" role="menuitem" id="duplicate-project">Duplicate</button>
+          <button type="button" role="menuitem" id="delete-project">Delete…</button>
+          <hr>
+          <button type="button" role="menuitem" id="save-file">Save project to file</button>
+          <button type="button" role="menuitem" id="save-all">Save all projects to file</button>
+          <button type="button" role="menuitem" id="open-file">Open file…</button>
+        </div>
+      </details>
+      <input type="file" id="file-input" accept=".json,application/json" hidden>
+    </div>
     <div class="topbar-actions">
       <button type="button" id="share-btn" class="ghost">Copy share link</button>
       <button type="button" id="print-btn" class="ghost">Print</button>
@@ -19,39 +36,36 @@
 
   <main class="layout">
     <section class="panel inputs" aria-label="Inputs">
-      <h2>Stock sheet</h2>
-      <div class="grid-fields">
+      <label class="name-field">Project name
+        <input id="project-name" autocomplete="off">
+      </label>
+      <div class="grid-fields three">
         <label>Units
           <select id="unit">
             <option value="in">Inches</option>
             <option value="mm">Millimeters</option>
           </select>
         </label>
-        <label>Effort
-          <select id="effort">
-            <option value="quick">Quick</option>
-            <option value="normal" selected>Normal</option>
-            <option value="thorough">Thorough</option>
-          </select>
-        </label>
-        <label>Length (along grain)
-          <input id="sheet-length" inputmode="decimal" autocomplete="off">
-        </label>
-        <label>Width
-          <input id="sheet-width" inputmode="decimal" autocomplete="off">
-        </label>
         <label>Blade width (kerf)
           <input id="kerf" inputmode="decimal" autocomplete="off">
         </label>
-        <label>Edge trim (each side)
-          <input id="trim" inputmode="decimal" autocomplete="off">
+        <label>Effort
+          <select id="effort">
+            <option value="quick">Quick</option>
+            <option value="normal">Normal</option>
+            <option value="thorough">Thorough</option>
+          </select>
         </label>
       </div>
-      <label class="check">
-        <input type="checkbox" id="sheet-grain">
-        Sheet has grain (parts with "Grain" set keep their length along the sheet length)
-      </label>
       <p class="hint" id="unit-hint"></p>
+
+      <div class="parts-head">
+        <h2>Materials</h2>
+        <div class="parts-actions">
+          <button type="button" id="add-material" class="ghost">Add material</button>
+        </div>
+      </div>
+      <div id="materials"></div>
 
       <div class="parts-head">
         <h2>Parts</h2>
@@ -68,6 +82,7 @@
               <th>Length</th>
               <th>Width</th>
               <th>Qty</th>
+              <th class="mat-col">Material</th>
               <th title="Keep the part length along the sheet grain">Grain</th>
               <th><span class="sr-only">Remove</span></th>
             </tr>
@@ -90,7 +105,7 @@
   <dialog id="paste-dialog">
     <form method="dialog" class="paste-form">
       <h2>Paste a parts list</h2>
-      <p class="hint">One part on each line: <code>length, width, qty, label, grain</code>. Qty, label and grain are optional. Commas, tabs or semicolons separate the fields. <code>24 x 12</code> also works. Grain is <code>y</code> or <code>n</code>.</p>
+      <p class="hint">One part on each line: <code>length, width, qty, label, grain, material</code>. Only length and width are required. Commas, tabs or semicolons separate the fields. <code>24 x 12</code> also works. Grain is <code>y</code> or <code>n</code>. Material is the name of a material in this project.</p>
       <textarea id="paste-text" rows="10" spellcheck="false" placeholder="72, 11 1/4, 2, Side, y&#10;34 1/2, 11 1/4, 5, Shelf&#10;30 x 15"></textarea>
       <label class="check"><input type="checkbox" id="paste-replace"> Replace the current list</label>
       <p class="paste-error" id="paste-error"></p>

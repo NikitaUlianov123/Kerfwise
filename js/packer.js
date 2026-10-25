@@ -8,7 +8,7 @@ export const ORDERS = ['area', 'long', 'short', 'x', 'y', 'perim'];
 export const CHOICES = ['baf', 'bssf', 'blsf', 'tl', 'lt'];
 export const SPLITS = ['sla', 'lla', 'minas', 'maxas', 'sa', 'la', 'h', 'v'];
 
-const EFFORT_MS = { quick: 400, normal: 2000, thorough: 8000 };
+export const EFFORT_MS = { quick: 400, normal: 2000, thorough: 8000 };
 
 function now() {
   return globalThis.performance.now();

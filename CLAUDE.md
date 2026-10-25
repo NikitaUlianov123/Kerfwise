@@ -12,8 +12,10 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 | At lower bound | random phase gets 15% of budget | `js/packer.js` `solve` |
 | Max total quantity | 5000 | `js/app.js` `MAX_ITEMS` |
 | Input debounce | 350 ms | `js/app.js` `DEBOUNCE_MS` |
-| localStorage key | `kerfwise-v1` | `js/app.js` |
-| Share link | `#s=<base64url JSON>` | `js/app.js` `encodeShare` |
+| localStorage key | `kerfwise-v2` (all projects); `kerfwise-v1` read once for migration | `js/store.js` |
+| Project file | `{format:'kerfwise', version:2, projects:[...]}`, name `<project>.kerfwise.json` | `js/store.js` `makeFile` |
+| Share link | `#s=<base64url project JSON>`; always opens as a NEW project, then the hash is cleared | `js/app.js` `importShareLink` |
+| Budget per material | effort budget ÷ materials with parts (min 150 ms) | `js/app.js` `runSolve` |
 | Default RNG seed | 12345 | `js/packer.js` `solve` |
 
 ## Geometry conventions
@@ -35,6 +37,8 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 |-------|--------|
 | solve input | `{ sheet:{length,width}, kerf, trim, sheetGrain, parts:[{id,label,length,width,qty,grain}] }` (all lengths in u) |
 | solve options | `{ effort, timeLimitMs, maxTrials, seed }` |
+| Project (store.js) | `{ id, name, unit, effort, kerf, materials:[{id,name,length,width,trim,grain}], parts:[{id,label,length,width,qty,grain,material}] }` — lengths are typed TEXT; part `id` is runtime only |
+| Store | `{ currentId, projects:[Project] }` |
 | solve result | `{ sheets:[{placements,cuts,offcuts,usedArea}], unplaced:[{partId,label,count,reason}], stats }` or `{ errors:[] }` |
 | stats | `sheetCount, lowerBound, placedCount, partArea, sheetArea, efficiency, cutCount, cutLength, trials, elapsedMs` |
 
@@ -56,7 +60,9 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 | Change unit parsing/format | `js/units.js` → `test/units.test.js` |
 | Change paste format | `js/paste.js` → `test/paste.test.js` → hint in `index.html` dialog |
 | Change sheet drawing / cut table | `js/render.js` → `css/style.css` |
-| Add an input field | `index.html` → `js/app.js` (DEFAULT_STATE, normalizeState, serializable, bindSettings, collectInput) |
+| Add a project field | `js/store.js` (blankProject, normalizeProject, serializeProject) → `test/store.test.js` → `index.html` → `js/app.js` (renderProject, bind*, collectJobs) |
+| Add a material field | `js/store.js` (defaultMaterial, normalizeMaterial, serializeProject) → `js/app.js` (renderMaterials, collectJobs, changeUnit) |
+| Change border dimension marks | `js/render.js` `borderMarks`, `sheetSvg` → `test/render.test.js` |
 | Change deploy | `.github/workflows/pages.yml` |
 
 ## Session Cost Log
@@ -64,3 +70,5 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 | Date | Task | Mode | Tokens (est.) | Notes |
 |------|------|------|:-------------:|-------|
 | 2026-10-25 | Build app, tests, docs, Pages workflow | inline | ~160K | One-time setup; includes browser screenshot checks |
+| 2026-10-25 | Rename to Kerfwise, commit, repo, deploy | inline | ~10K | |
+| 2026-10-25 | Action bump; projects + materials + file save; border dimension marks | inline | ~65K | Red flag over 50K: app.js rewrite + browser flow scripts. Lookups now covered by this file |

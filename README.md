@@ -11,7 +11,10 @@ A web app that fits a list of rectangular parts on the fewest stock sheets (defa
 - **Edge trim** on each side of the sheet.
 - **Inches with fractions** (`23 1/2`, `23-1/2`, `1' 11 1/2"`) or millimeters.
 - **Layout check.** A separate checker tests every result (overlaps, kerf gaps, grain, sheet bounds, cut paths, part counts). If a check fails, the app shows an error, not a plan.
-- Identical sheets are grouped. Paste a parts list. Share link. Print view. Saves your list in the browser.
+- **Projects.** Keep many named projects. Each one saves in the browser. Save one or all projects to a file and open them again later. A share link opens as a new project.
+- **Materials.** A project can use more than one material (for example 3/4" and 1/4" plywood). Each material has its own sheet size, edge trim and grain setting. Each part selects a material.
+- **Dimensions on the sheet border.** Each cut position is marked on the sheet edge (crosscuts on the top, rips on the left).
+- Identical sheets are grouped. Paste a parts list. Share link. Print view.
 
 ## Run locally
 

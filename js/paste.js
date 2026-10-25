@@ -22,5 +22,9 @@ export function parsePasteLine(line) {
   if (fields[4]) {
     grain = /^(y|yes|true|1|grain)$/i.test(fields[4]);
   }
-  return { length: fields[0], width: fields[1], qty, label: fields[3] || '', grain };
+  let material = '';
+  if (fields[5]) {
+    material = fields[5];
+  }
+  return { length: fields[0], width: fields[1], qty, label: fields[3] || '', grain, material };
 }

@@ -82,19 +82,50 @@ function cutRect(c) {
 }
 
 // Drawn in display units (inches or mm): browsers clamp huge font sizes, so raw units cannot be used.
+// Distinct cut positions along one edge. Labels that would overlap are pushed apart;
+// `at` stays the true position and a leader joins it to the label.
+export function borderMarks(cuts, axis, k, spacing) {
+  const positions = [...new Set(cuts.filter((c) => c.axis === axis).map((c) => c.pos))].sort((a, b) => a - b);
+  const marks = [];
+  let last = -Infinity;
+  for (const u of positions) {
+    const at = u * k;
+    const label = Math.max(at, last + spacing);
+    marks.push({ u, at, label });
+    last = label;
+  }
+  return marks;
+}
+
 export function sheetSvg(sheet, input, unit, hues, key) {
   const fmt = (v) => formatLength(v, unit);
   const k = 1 / UNITS[unit].scale;
   const sc = (r) => ({ x: r.x * k, y: r.y * k, w: r.w * k, h: r.h * k });
   const L = input.sheet.length * k;
   const W = input.sheet.width * k;
-  const pad = Math.max(L, W) * 0.05;
   const base = Math.min(L, W) * 0.045;
   const minSize = Math.min(L, W) * 0.016;
   const hairline = Math.max(L, W) * 0.0015;
+  const dimFs = base * 0.62;
+  const tick = dimFs * 0.6;
+  const gap = dimFs * 0.3;
+  const top = borderMarks(sheet.cuts, 'v', k, dimFs * 1.1);
+  const left = borderMarks(sheet.cuts, 'h', k, dimFs * 1.1);
+  const labelLen = (marks) => {
+    let n = 0;
+    for (const m of marks) {
+      n = Math.max(n, fmt(m.u).length);
+    }
+    return n * dimFs * 0.58;
+  };
+  const padTop = tick * 1.6 + gap + labelLen(top) + dimFs * 0.3;
+  const padLeft = tick * 1.6 + gap + labelLen(left) + dimFs * 0.3;
+  const padEnd = dimFs * 2;
   const parts = [];
 
-  parts.push(`<svg class="sheet-svg" viewBox="${-pad} ${-pad} ${L + pad * 1.2} ${W + pad * 1.2}" role="img" aria-label="Sheet layout">`);
+  parts.push(
+    `<svg class="sheet-svg" viewBox="${-padLeft} ${-padTop} ${L + padLeft + padEnd} ${W + padTop + padEnd}" role="img" aria-label="Sheet layout">`,
+  );
   parts.push('<defs>');
   parts.push(
     `<pattern id="grain-${key}" patternUnits="userSpaceOnUse" width="${L}" height="${W / 16}">` +
@@ -111,9 +142,10 @@ export function sheetSvg(sheet, input, unit, hues, key) {
     parts.push(`<rect x="0" y="0" width="${L}" height="${W}" fill="url(#grain-${key})"/>`);
   }
   for (const o of sheet.offcuts) {
-    parts.push(`<rect class="offcut" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" fill="url(#hatch-${key})"><title>Offcut ${esc(fmt(o.w))} × ${esc(fmt(o.h))}</title></rect>`);
+    const g = sc(o);
+    parts.push(`<rect class="offcut" x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" fill="url(#hatch-${key})"><title>Offcut ${esc(fmt(o.w))} × ${esc(fmt(o.h))}</title></rect>`);
   }
-  const t = input.trim;
+  const t = input.trim * k;
   if (t > 0) {
     parts.push(`<path class="trim" fill-rule="evenodd" d="M0 0H${L}V${W}H0Z M${t} ${t}V${W - t}H${L - t}V${t}Z"><title>Edge trim</title></path>`);
   }
@@ -150,11 +182,29 @@ export function sheetSvg(sheet, input, unit, hues, key) {
   });
   parts.push(`<rect class="sheet-edge" x="0" y="0" width="${L}" height="${W}" stroke-width="${hairline * 2}"/>`);
 
-  const dimFs = base * 0.85;
-  parts.push(`<text class="dim" x="${L / 2}" y="${-pad * 0.35}" font-size="${dimFs}">${esc(fmt(input.sheet.length))}</text>`);
-  parts.push(`<text class="dim" x="${-pad * 0.35}" y="${W / 2}" font-size="${dimFs}" transform="rotate(-90 ${-pad * 0.35} ${W / 2})">${esc(fmt(input.sheet.width))}</text>`);
+  const sw = hairline * 1.2;
+  // Top edge: crosscut positions from the left edge, read upward.
+  for (const m of top) {
+    const ty = -tick * 1.6 - gap;
+    parts.push(
+      `<path class="dim-tick" d="M${m.at} 0V${-tick}L${m.label} ${-tick * 1.6}" stroke-width="${sw}"/>` +
+        `<text class="dim-mark" x="${m.label}" y="${ty}" font-size="${dimFs}" transform="rotate(-90 ${m.label} ${ty})">${esc(fmt(m.u))}</text>`,
+    );
+  }
+  // Left edge: rip positions from the top edge.
+  for (const m of left) {
+    const tx = -tick * 1.6 - gap;
+    parts.push(
+      `<path class="dim-tick" d="M0 ${m.at}H${-tick}L${-tick * 1.6} ${m.label}" stroke-width="${sw}"/>` +
+        `<text class="dim-mark" x="${tx}" y="${m.label}" font-size="${dimFs}" text-anchor="end">${esc(fmt(m.u))}</text>`,
+    );
+  }
+  const by = W + padEnd * 0.5;
+  const rx = L + padEnd * 0.5;
+  parts.push(`<text class="dim" x="${L / 2}" y="${by}" font-size="${dimFs}">${esc(fmt(input.sheet.length))}</text>`);
+  parts.push(`<text class="dim" x="${rx}" y="${W / 2}" font-size="${dimFs}" transform="rotate(90 ${rx} ${W / 2})">${esc(fmt(input.sheet.width))}</text>`);
   if (input.sheetGrain) {
-    parts.push(`<text class="dim grain-tag" x="${L}" y="${-pad * 0.35}" font-size="${dimFs * 0.8}">grain →</text>`);
+    parts.push(`<text class="dim grain-tag" x="0" y="${by}" font-size="${dimFs * 0.85}">grain →</text>`);
   }
   parts.push('</svg>');
   return parts.join('');
