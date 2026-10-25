@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { recut } from '../js/recut.js';
+import { recut, orderDepthFirst } from '../js/recut.js';
 import { packSheet, ORDERS, CHOICES, SPLITS, sortItems, mulberry32 } from '../js/packer.js';
 import { checkCutSequence } from '../js/verify.js';
 
@@ -12,7 +12,11 @@ test('aligned crosscuts across two rows become one cut each', () => {
   const parts = [rect(0, 0, 30, 20), rect(31, 0, 30, 20), rect(0, 21, 30, 20), rect(31, 21, 30, 20)];
   const plan = recut(parts, 70, 41, 1);
   assert.equal(plan.count, 4);
-  assert.deepEqual(plan.cuts.slice(0, 2).map((c) => [c.axis, c.pos, c.from, c.to]), [['v', 30, 0, 41], ['v', 61, 0, 41]]);
+  // Depth first: finish the left column before cutting the right side.
+  assert.deepEqual(
+    plan.cuts.map((c) => [c.axis, c.pos, c.from, c.to]),
+    [['v', 30, 0, 41], ['h', 20, 0, 30], ['v', 61, 0, 41], ['h', 20, 31, 61]],
+  );
   assert.deepEqual(checkCutSequence({ x: 0, y: 0, w: 70, h: 41 }, parts, plan.cuts, 1), []);
   assert.deepEqual(plan.offcuts, [{ x: 62, y: 0, w: 8, h: 41 }]);
 });
@@ -127,4 +131,42 @@ test('with equal sheets, the plan whose cuts line up wins', async () => {
   assert.equal(betterSolution(offset, aligned, ctx), false);
   const fewerSheets = { sheets: [] };
   assert.equal(betterSolution(fewerSheets, aligned, ctx), true);
+});
+
+test('depth-first order finishes one piece before the other', () => {
+  // Interleaved: split in two, cut top, cut bottom, cut top again.
+  const region = { x: 0, y: 0, w: 100, h: 50 };
+  const split = { axis: 'v', pos: 50, from: 0, to: 50, thickness: 1 };
+  const leftA = { axis: 'h', pos: 20, from: 0, to: 50, thickness: 1 };
+  const rightA = { axis: 'h', pos: 25, from: 51, to: 100, thickness: 1 };
+  const leftB = { axis: 'v', pos: 30, from: 0, to: 20, thickness: 1 };
+  const rightB = { axis: 'v', pos: 70, from: 26, to: 50, thickness: 1 };
+  const ordered = orderDepthFirst([split, leftA, rightA, leftB, rightB], region, 1);
+  assert.deepEqual(ordered, [split, leftA, leftB, rightA, rightB]);
+});
+
+test('depth-first order keeps a list that cannot be replayed unchanged', () => {
+  const bad = [{ axis: 'v', pos: 5, from: 0, to: 3, thickness: 1 }];
+  assert.equal(orderDepthFirst(bad, { x: 0, y: 0, w: 10, h: 10 }, 1), bad);
+  assert.deepEqual(orderDepthFirst([], { x: 0, y: 0, w: 10, h: 10 }, 1), []);
+});
+
+test('depth-first order is a valid sequence for packer and re-planned cuts', () => {
+  const rng = mulberry32(11);
+  for (let t = 0; t < 40; t++) {
+    const items = [];
+    const n = 2 + Math.floor(rng() * 20);
+    for (let i = 0; i < n; i++) {
+      const l = 2 + Math.floor(rng() * 40);
+      const w = 2 + Math.floor(rng() * 20);
+      items.push({ seq: i, partId: 'p', label: 'P', l, w, area: l * w, orients: [{ w: l, h: w, rotated: false }] });
+    }
+    const kerf = t % 3;
+    const s = packSheet(sortItems(items, 'area', null, 0), 96, 48, kerf, CHOICES[t % CHOICES.length], SPLITS[t % SPLITS.length]);
+    const placed = s.placements.map((p) => rect(p.x, p.y, p.w, p.h));
+    const region = { x: 0, y: 0, w: 96, h: 48 };
+    const ordered = orderDepthFirst(s.cuts, region, kerf);
+    assert.equal(ordered.length, s.cuts.length);
+    assert.deepEqual(checkCutSequence(region, placed, ordered, kerf), [], `packer, trial ${t}`);
+  }
 });

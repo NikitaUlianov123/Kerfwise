@@ -52,7 +52,8 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 | Sheet rank (greedy) | more used area → fewer re-planned cuts → larger free rect |
 | Search re-plan | `plannedCuts` cached per layout (`cutCache`, cleared at 50000), 3000-node limit |
 | At lower bound | random phase gets 40% of budget (`AT_BOUND_SHARE`) |
-| Cut re-plan | after packing, `recut` searches the fewest through cuts for the fixed layout (exact, 20000-node limit → one-axis shortcut → packer cuts); used only if fewer cuts, or equal cuts and shorter length; list sorted into stages |
+| Cut re-plan | after packing, `recut` searches the fewest through cuts for the fixed layout (exact, 20000-node limit → one-axis shortcut → packer cuts); used only if fewer cuts, or equal cuts and shorter length |
+| Cut order | depth first (`orderDepthFirst`): after a cut splits a piece, all cuts of the first piece, then the second; applied to re-planned AND packer cut lists |
 
 ## Where to find X
 
@@ -78,3 +79,4 @@ Static site (no build). Vanilla ES modules. Tests: `npm test` (node:test). Deplo
 | 2026-10-25 | Action bump; projects + materials + file save; border dimension marks | inline | ~65K | Red flag over 50K: app.js rewrite + browser flow scripts. Lookups now covered by this file |
 | 2026-10-25 | Merge aligned cuts (recut search, cut replay check) | inline | ~30K | |
 | 2026-10-25 | Rank layouts by re-planned cuts | inline | ~12K | |
+| 2026-10-25 | Depth-first cut order | inline | ~8K | |

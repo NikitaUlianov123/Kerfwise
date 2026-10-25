@@ -4,7 +4,7 @@
 // Coordinates: x runs along the sheet length (the grain), y along the sheet width.
 // A part with grain locked keeps its length along x.
 
-import { recut } from './recut.js';
+import { recut, orderDepthFirst } from './recut.js';
 
 export const ORDERS = ['area', 'long', 'short', 'x', 'y', 'perim'];
 export const CHOICES = ['baf', 'bssf', 'blsf', 'tl', 'lt'];
@@ -406,8 +406,9 @@ function lengthOf(cuts) {
 // Keeps the packer's cuts unless the re-planned sequence is shorter.
 function bestCutPlan(sheet, ctx) {
   const plan = recut(sheet.placements, ctx.W, ctx.H, ctx.kerf);
+  const packed = { cuts: orderDepthFirst(sheet.cuts, { x: 0, y: 0, w: ctx.W, h: ctx.H }, ctx.kerf), offcuts: sheet.free };
   if (plan === null) {
-    return { cuts: sheet.cuts, offcuts: sheet.free };
+    return packed;
   }
   if (plan.count < sheet.cuts.length) {
     return plan;
@@ -415,7 +416,7 @@ function bestCutPlan(sheet, ctx) {
   if (plan.count === sheet.cuts.length && plan.length < lengthOf(sheet.cuts)) {
     return plan;
   }
-  return { cuts: sheet.cuts, offcuts: sheet.free };
+  return packed;
 }
 
 function finish(best, input, ctx, unplaced, startedAt, trials) {

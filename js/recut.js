@@ -2,6 +2,7 @@
 // The packer's own cuts follow the order it placed parts, so cuts that line up
 // across several parts can come out as separate short cuts. The search finds the
 // fewest through cuts that free every part, so aligned cuts merge into one.
+// The returned list is in depth-first order (see orderDepthFirst).
 
 const ABORT = Symbol('abort');
 
@@ -145,42 +146,51 @@ function search(placements, W, H, kerf, maxNodes, exact) {
   }
 }
 
-// Groups the cut list into stages a person can follow at the saw: every cut in one
-// direction, then the cuts across each resulting strip, and so on. A cut's stage
-// rises only when its direction differs from the cut that made its piece, so the
-// stable sort never moves a cut before the cut it depends on.
-function orderByStage(cuts, region, kerf) {
-  let pieces = [{ ...region, stage: 0, axis: null }];
-  const staged = cuts.map((c, index) => {
-    const at = pieces.findIndex((pc) => {
+// Orders a valid cut list depth first: after a cut splits a piece in two, every
+// cut in the first piece comes before any cut in the second, at every level.
+// The cut tree is rebuilt by replaying the list, so any valid order works as input.
+export function orderDepthFirst(cuts, region, kerf) {
+  const root = { ...region, cut: null, children: [] };
+  let leaves = [root];
+  for (const c of cuts) {
+    const at = leaves.findIndex((pc) => {
       if (c.axis === 'h') {
         return pc.x === c.from && pc.x + pc.w === c.to && c.pos >= pc.y && c.pos < pc.y + pc.h;
       }
       return pc.y === c.from && pc.y + pc.h === c.to && c.pos >= pc.x && c.pos < pc.x + pc.w;
     });
-    const pc = pieces[at];
-    let stage = pc.stage;
-    if (pc.axis !== null && pc.axis !== c.axis) {
-      stage++;
+    if (at === -1) {
+      return cuts;
     }
-    let next = [];
+    const pc = leaves[at];
+    let parts = [];
     if (c.axis === 'h') {
-      next = [
+      parts = [
         { x: pc.x, y: pc.y, w: pc.w, h: c.pos - pc.y },
         { x: pc.x, y: c.pos + kerf, w: pc.w, h: pc.y + pc.h - c.pos - kerf },
       ];
     } else {
-      next = [
+      parts = [
         { x: pc.x, y: pc.y, w: c.pos - pc.x, h: pc.h },
         { x: c.pos + kerf, y: pc.y, w: pc.x + pc.w - c.pos - kerf, h: pc.h },
       ];
     }
-    const kept = next.filter((n) => n.w > 0 && n.h > 0).map((n) => ({ ...n, stage, axis: c.axis }));
-    pieces.splice(at, 1, ...kept);
-    return { c, stage, index };
-  });
-  staged.sort((a, b) => a.stage - b.stage || a.index - b.index);
-  return staged.map((x) => x.c);
+    pc.cut = c;
+    pc.children = parts.filter((n) => n.w > 0 && n.h > 0).map((n) => ({ ...n, cut: null, children: [] }));
+    leaves.splice(at, 1, ...pc.children);
+  }
+  const out = [];
+  const visit = (node) => {
+    if (node.cut === null) {
+      return;
+    }
+    out.push(node.cut);
+    for (const child of node.children) {
+      visit(child);
+    }
+  };
+  visit(root);
+  return out;
 }
 
 // Exact search first; if the sheet is too complex for the node limit, the
@@ -193,5 +203,5 @@ export function recut(placements, W, H, kerf, maxNodes = 20000) {
   if (plan === null) {
     return null;
   }
-  return { ...plan, cuts: orderByStage(plan.cuts, { x: 0, y: 0, w: W, h: H }, kerf) };
+  return { ...plan, cuts: orderDepthFirst(plan.cuts, { x: 0, y: 0, w: W, h: H }, kerf) };
 }

@@ -5,7 +5,7 @@
 | `units.js` | `parseLength(text, unit)` → integer u or null; `formatLength(u, unit)`; `convertText(text, from, to)` |
 | `packer.js` | Pure engine. `solve(input, options)`, `packSheet(order, W, H, kerf, choice, split)`, `expandParts`, `validateInput`, `betterSolution`, `mulberry32` |
 | `verify.js` | `verifySolution(input, result)` → problem strings (empty = valid); `isGuillotine(rects, kerf)`; `checkCutSequence(region, placements, cuts, kerf)` replays the cut list |
-| `recut.js` | `recut(placements, W, H, kerf, maxNodes)` → `{count, length, cuts, offcuts}` or null; fewest through cuts for fixed positions, sorted into stages |
+| `recut.js` | `recut(placements, W, H, kerf, maxNodes)` → `{count, length, cuts, offcuts}` or null; fewest through cuts for fixed positions. `orderDepthFirst(cuts, region, kerf)` reorders any valid list depth first |
 | `paste.js` | `parsePasteLine(line)` → `{length,width,qty,label,grain,material}` or null |
 | `store.js` | Project/store shapes, v1 migration (`normalizeProject`), `serializeProject/Store`, `cloneAsNew`, `uniqueName`, `makeFile`/`parseFile`, `fileName` |
 | `worker.js` | Module worker: `{id,jobs:[{materialId,input}],options}` → `{id,results:[{materialId,result,problems}]}` or `{id,failure}` |
